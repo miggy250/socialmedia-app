@@ -53,8 +53,8 @@ export const NavigationBar = () => {
             </Button>
           </Link>
 
-          <Link to="/settings">
-            <Avatar className="h-8 w-8 cursor-pointer">
+          <Link to="/profile">
+            <Avatar className="h-8 w-8 cursor-pointer border-2 border-transparent hover:border-primary transition-colors">
               <AvatarImage src="" />
               <AvatarFallback className="bg-primary/10 text-primary text-xs">
                 {user?.email?.charAt(0).toUpperCase()}

@@ -129,6 +129,20 @@ class ApiClient {
     });
   }
 
+  async getUserPosts(userId: string) {
+    return this.request<{ posts: any[] }>(`/posts/user/${userId}`);
+  }
+
+  async savePost(postId: string) {
+    return this.request<{ saved: boolean; message: string }>(`/posts/${postId}/save`, {
+      method: 'POST',
+    });
+  }
+
+  async getSavedPosts() {
+    return this.request<{ posts: any[] }>('/posts/saved');
+  }
+
   // Users methods
   async getUserSuggestions() {
     return this.request<{ suggestions: any[] }>('/users/suggestions');
@@ -262,6 +276,38 @@ class ApiClient {
 
   async searchUsers(query: string, limit = 20) {
     return this.request<{ users: any[] }>(`/search/users?q=${encodeURIComponent(query)}&limit=${limit}`);
+  }
+
+  // Stories
+  async getStories() {
+    return this.request<{ stories: any[] }>('/stories');
+  }
+
+  async getUserStories(userId: string) {
+    return this.request<{ stories: any[] }>(`/stories/user/${userId}`);
+  }
+
+  async createStory(data: { imageUrl: string; caption?: string }) {
+    return this.request<{ story: any }>('/stories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async markStoryViewed(storyId: string) {
+    return this.request<{ message: string }>(`/stories/${storyId}/view`, {
+      method: 'POST',
+    });
+  }
+
+  async deleteStory(storyId: string) {
+    return this.request<{ message: string }>(`/stories/${storyId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getStoryViewers(storyId: string) {
+    return this.request<{ viewers: any[] }>(`/stories/${storyId}/viewers`);
   }
 }
 

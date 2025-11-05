@@ -17,6 +17,7 @@ const adminRoutes = require('./routes/admin');
 const uploadsRoutes = require('./routes/uploads');
 const exploreRoutes = require('./routes/explore');
 const searchRoutes = require('./routes/search');
+const storiesRoutes = require('./routes/stories');
 const { initializeSocket } = require('./socket');
 
 const app = express();
@@ -60,6 +61,7 @@ app.use('/api/messages', messagesRoutes);
 app.use('/api/uploads', uploadsRoutes);
 app.use('/api/explore', exploreRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/stories', storiesRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

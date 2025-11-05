@@ -20,16 +20,44 @@ router.get('/', authenticateToken, async (req, res) => {
         pr.full_name,
         pr.avatar_url,
         pr.location,
-        (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) AS user_liked
+        (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) AS user_liked,
+        (SELECT COUNT(*) FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = ?) AS user_saved
       FROM posts p
       JOIN profiles pr ON p.user_id = pr.id
       ORDER BY p.created_at DESC
       LIMIT ? OFFSET ?
-    `, [req.user.id, limit, offset]);
+    `, [req.user.id, req.user.id, limit, offset]);
 
     res.json({ posts });
   } catch (error) {
     console.error('Get posts error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get posts by user ID
+router.get('/user/:userId', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const [posts] = await pool.execute(`
+      SELECT 
+        p.*,
+        pr.username,
+        pr.full_name,
+        pr.avatar_url,
+        pr.location,
+        (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) AS user_liked,
+        (SELECT COUNT(*) FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = ?) AS user_saved
+      FROM posts p
+      JOIN profiles pr ON p.user_id = pr.id
+      WHERE p.user_id = ?
+      ORDER BY p.created_at DESC
+    `, [req.user.id, req.user.id, userId]);
+
+    res.json({ posts });
+  } catch (error) {
+    console.error('Get user posts error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -211,6 +239,64 @@ router.post('/:postId/comments', [
     res.status(201).json({ comment: newComment[0] });
   } catch (error) {
     console.error('Add comment error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Save/Unsave post
+router.post('/:postId/save', authenticateToken, async (req, res) => {
+  try {
+    const { postId } = req.params;
+
+    // Check if already saved
+    const [existingSave] = await pool.execute(
+      'SELECT id FROM saved_posts WHERE post_id = ? AND user_id = ?',
+      [postId, req.user.id]
+    );
+
+    if (existingSave.length > 0) {
+      // Unsave
+      await pool.execute(
+        'DELETE FROM saved_posts WHERE post_id = ? AND user_id = ?',
+        [postId, req.user.id]
+      );
+      res.json({ saved: false, message: 'Post removed from saved' });
+    } else {
+      // Save
+      await pool.execute(
+        'INSERT INTO saved_posts (post_id, user_id) VALUES (?, ?)',
+        [postId, req.user.id]
+      );
+      res.json({ saved: true, message: 'Post saved' });
+    }
+  } catch (error) {
+    console.error('Save/unsave error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get saved posts
+router.get('/saved', authenticateToken, async (req, res) => {
+  try {
+    const [posts] = await pool.execute(`
+      SELECT 
+        p.*,
+        pr.username,
+        pr.full_name,
+        pr.avatar_url,
+        pr.location,
+        (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) AS user_liked,
+        (SELECT COUNT(*) FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = ?) AS user_saved
+      FROM saved_posts sp
+      JOIN posts p ON sp.post_id = p.id
+      JOIN profiles pr ON p.user_id = pr.id
+      WHERE sp.user_id = ?
+      ORDER BY sp.created_at DESC
+    `, [req.user.id, req.user.id, req.user.id]);
+
+    res.json({ posts });
+  } catch (error) {
+    console.error('Get saved posts error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

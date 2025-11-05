@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { CommentsDialog } from "./CommentsDialog";
 import { formatDistanceToNow } from "date-fns";
+import { Link } from "react-router-dom";
 
 interface PostCardProps {
   post: any;
@@ -22,6 +23,10 @@ export const PostCard = ({ post }: PostCardProps) => {
 
   const [isLiked, setIsLiked] = useState(
     post.user_liked > 0 || false
+  );
+
+  const [isSaved, setIsSaved] = useState(
+    post.user_saved > 0 || false
   );
 
   const handleLike = async () => {
@@ -47,19 +52,50 @@ export const PostCard = ({ post }: PostCardProps) => {
     }
   };
 
+  const handleSave = async () => {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "You must be logged in to save posts",
+      });
+      return;
+    }
+
+    try {
+      const response = await apiClient.savePost(post.id);
+      setIsSaved(response.saved);
+      toast({
+        title: response.saved ? "Post saved" : "Post unsaved",
+        description: response.saved ? "Added to your saved posts" : "Removed from saved posts",
+      });
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: handleApiError(error),
+      });
+    }
+  };
+
   return (
     <>
       <Card className="mb-4 overflow-hidden border-border/50 shadow-sm hover:shadow-md transition-shadow">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
-            <Avatar className="h-12 w-12 border-2 border-primary/20">
-              <AvatarImage src={post.avatar_url} alt={post.full_name} />
-              <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                {post.username?.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+            <Link to={`/profile/${post.user_id}`}>
+              <Avatar className="h-12 w-12 border-2 border-primary/20 cursor-pointer hover:border-primary transition-colors">
+                <AvatarImage src={post.avatar_url} alt={post.full_name} />
+                <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                  {post.username?.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            </Link>
             <div className="flex-1">
-              <p className="font-semibold text-foreground">{post.full_name || post.username}</p>
+              <Link to={`/profile/${post.user_id}`} className="hover:underline">
+                <p className="font-semibold text-foreground">{post.full_name || post.username}</p>
+              </Link>
               {post.location && (
                 <p className="text-sm text-muted-foreground">{post.location}</p>
               )}
@@ -110,8 +146,8 @@ export const PostCard = ({ post }: PostCardProps) => {
               <span>Share</span>
             </Button>
             
-            <Button variant="ghost" size="icon">
-              <Bookmark className="h-5 w-5" />
+            <Button variant="ghost" size="icon" onClick={handleSave}>
+              <Bookmark className={`h-5 w-5 ${isSaved ? 'fill-primary text-primary' : ''}`} />
             </Button>
           </div>
         </CardFooter>
