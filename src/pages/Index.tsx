@@ -1,11 +1,12 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { NavigationBar } from "@/components/NavigationBar";
-import { StoriesBar } from "@/components/StoriesBar";
 import { PostCard } from "@/components/PostCard";
+import { PostComposer } from "@/components/PostComposer";
 import { UserSuggestions } from "@/components/UserSuggestions";
+import { ProfileSummary } from "@/components/ProfileSummary";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { apiClient } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 
 const Index = () => {
@@ -21,17 +22,8 @@ const Index = () => {
   const { data: posts, isLoading } = useQuery({
     queryKey: ['posts'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('posts')
-        .select(`
-          *,
-          profiles:user_id (username, avatar_url, full_name, location),
-          likes (user_id)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data;
+      const response = await apiClient.getPosts();
+      return response.posts;
     },
     enabled: !!user,
   });
@@ -56,7 +48,7 @@ const Index = () => {
       <div className="max-w-6xl mx-auto pt-20 pb-6 px-4">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
-            <StoriesBar />
+            <PostComposer />
             
             <div className="space-y-4">
               {isLoading ? (
@@ -77,6 +69,7 @@ const Index = () => {
 
           <div className="hidden lg:block">
             <div className="sticky top-24">
+              <ProfileSummary />
               <UserSuggestions />
             </div>
           </div>

@@ -3,64 +3,35 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { Button } from '@/components/ui/button';
 import { Bell } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
+import { apiClient } from '@/lib/api';
 
 export const NotificationsPanel = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: notifications } = useQuery({
+  const { data } = useQuery({
     queryKey: ['notifications'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (error) throw error;
-      return data;
+      const res = await apiClient.getNotifications(20);
+      return res.notifications as Array<{ id: string; content: string; created_at: string; is_read?: boolean }>;
     },
     enabled: !!user,
   });
 
   useEffect(() => {
-    if (!user) return;
-
-    const channel = supabase
-      .channel('notifications-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['notifications'] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // No realtime hookup yet
+    return () => {};
   }, [user, queryClient]);
 
   const markAsRead = async (id: string) => {
-    await supabase
-      .from('notifications')
-      .update({ read: true })
-      .eq('id', id);
-    
+    await apiClient.markNotificationRead(id);
     queryClient.invalidateQueries({ queryKey: ['notifications'] });
   };
 
-  const unreadCount = notifications?.filter((n: any) => !n.read).length || 0;
+  const notifications = data || [];
+  const unreadCount = notifications?.filter((n: any) => !n.is_read).length || 0;
 
   return (
     <Sheet>
@@ -84,9 +55,9 @@ export const NotificationsPanel = () => {
           {notifications?.map((notification: any) => (
             <div
               key={notification.id}
-              onClick={() => !notification.read && markAsRead(notification.id)}
+              onClick={() => !notification.is_read && markAsRead(notification.id)}
               className={`p-3 rounded-lg border cursor-pointer hover:bg-muted transition-colors ${
-                !notification.read ? 'bg-primary/5 border-primary/20' : ''
+                !notification.is_read ? 'bg-primary/5 border-primary/20' : ''
               }`}
             >
               <p className="font-medium text-sm">{notification.content}</p>

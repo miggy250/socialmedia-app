@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Send } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { apiClient, handleApiError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
@@ -26,17 +26,8 @@ export const CommentsDialog = ({ postId, open, onOpenChange }: CommentsDialogPro
   const { data: comments } = useQuery({
     queryKey: ['comments', postId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('comments')
-        .select(`
-          *,
-          profiles:user_id (username, avatar_url, full_name)
-        `)
-        .eq('post_id', postId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data;
+      const response = await apiClient.getComments(postId);
+      return response.comments;
     },
     enabled: open,
   });
@@ -47,15 +38,7 @@ export const CommentsDialog = ({ postId, open, onOpenChange }: CommentsDialogPro
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('comments')
-        .insert({
-          post_id: postId,
-          user_id: user.id,
-          content: comment,
-        });
-
-      if (error) throw error;
+      await apiClient.addComment(postId, comment);
 
       setComment('');
       queryClient.invalidateQueries({ queryKey: ['comments', postId] });
@@ -64,7 +47,7 @@ export const CommentsDialog = ({ postId, open, onOpenChange }: CommentsDialogPro
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message,
+        description: handleApiError(error),
       });
     } finally {
       setLoading(false);
@@ -82,15 +65,15 @@ export const CommentsDialog = ({ postId, open, onOpenChange }: CommentsDialogPro
           {comments?.map((comment: any) => (
             <div key={comment.id} className="flex gap-3">
               <Avatar className="h-8 w-8">
-                <AvatarImage src={comment.profiles?.avatar_url} />
+                <AvatarImage src={comment.avatar_url} />
                 <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                  {comment.profiles?.username?.charAt(0).toUpperCase()}
+                  {comment.username?.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
 
               <div className="flex-1">
                 <div className="bg-muted rounded-lg p-3">
-                  <p className="font-semibold text-sm">{comment.profiles?.full_name || comment.profiles?.username}</p>
+                  <p className="font-semibold text-sm">{comment.full_name || comment.username}</p>
                   <p className="text-sm">{comment.content}</p>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 ml-3">

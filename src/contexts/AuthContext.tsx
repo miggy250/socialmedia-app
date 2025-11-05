@@ -1,11 +1,17 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { apiClient, handleApiError } from '@/lib/api';
 import { useNavigate } from 'react-router-dom';
+
+interface User {
+  id: string;
+  email: string;
+  username: string;
+  fullName?: string;
+  isAdmin?: boolean;
+}
 
 interface AuthContextType {
   user: User | null;
-  session: Session | null;
   signUp: (email: string, password: string, username: string, fullName: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -16,70 +22,66 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
+    const initAuth = async () => {
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        try {
+          const response = await apiClient.getCurrentUser();
+          setUser(response.user);
+        } catch (error) {
+          // Token is invalid, clear it
+          apiClient.clearToken();
+        }
       }
-    );
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
       setLoading(false);
-    });
+    };
 
-    return () => subscription.unsubscribe();
+    initAuth();
   }, []);
 
   const signUp = async (email: string, password: string, username: string, fullName: string) => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          username,
-          full_name: fullName,
-        }
-      }
-    });
-    
-    if (!error) {
+    try {
+      const response = await apiClient.register({
+        email,
+        password,
+        username,
+        fullName,
+      });
+      
+      setUser(response.user);
       navigate('/');
+      return { error: null };
+    } catch (error) {
+      return { error: handleApiError(error) };
     }
-    
-    return { error };
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    
-    if (!error) {
+    try {
+      const response = await apiClient.login(email, password);
+      setUser(response.user);
       navigate('/');
+      return { error: null };
+    } catch (error) {
+      return { error: handleApiError(error) };
     }
-    
-    return { error };
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    navigate('/auth');
+    try {
+      await apiClient.logout();
+    } finally {
+      setUser(null);
+      navigate('/auth');
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, signUp, signIn, signOut, loading }}>
+    <AuthContext.Provider value={{ user, signUp, signIn, signOut, loading }}>
       {children}
     </AuthContext.Provider>
   );

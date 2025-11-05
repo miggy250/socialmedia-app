@@ -5,60 +5,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Search as SearchIcon, TrendingUp } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api';
 
 const Search = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
-  const { data: users } = useQuery({
-    queryKey: ['search-users', searchQuery],
+  const { data: searchResults } = useQuery({
+    queryKey: ['search-all', searchQuery],
     queryFn: async () => {
-      if (!searchQuery.trim()) return [];
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .or(`username.ilike.%${searchQuery}%,full_name.ilike.%${searchQuery}%`)
-        .limit(20);
-
-      if (error) throw error;
-      return data;
+      if (!searchQuery.trim()) return { users: [], posts: [], hashtags: [] };
+      return await apiClient.search(searchQuery);
     },
     enabled: searchQuery.length > 0,
   });
 
-  const { data: posts } = useQuery({
-    queryKey: ['search-posts', searchQuery],
-    queryFn: async () => {
-      if (!searchQuery.trim()) return [];
+  const users = searchResults?.users || [];
 
-      const { data, error } = await supabase
-        .from('posts')
-        .select(`
-          *,
-          profiles:user_id (username, avatar_url, full_name)
-        `)
-        .ilike('content', `%${searchQuery}%`)
-        .limit(20);
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: searchQuery.length > 0,
-  });
+  const posts = searchResults?.posts || [];
 
   const { data: trending } = useQuery({
     queryKey: ['trending-hashtags'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('hashtags')
-        .select('*')
-        .order('posts_count', { ascending: false })
-        .limit(10);
-
-      if (error) throw error;
-      return data;
+      const res = await apiClient.getTrendingHashtags(10);
+      return res.hashtags;
     },
   });
 
@@ -91,7 +61,7 @@ const Search = () => {
                 {trending?.map((hashtag: any) => (
                   <div key={hashtag.id} className="p-3 hover:bg-muted rounded-lg transition-colors cursor-pointer">
                     <p className="font-semibold text-primary">#{hashtag.name}</p>
-                    <p className="text-sm text-muted-foreground">{hashtag.posts_count} posts</p>
+                    <p className="text-sm text-muted-foreground">{hashtag.post_count} posts</p>
                   </div>
                 ))}
               </div>
@@ -137,14 +107,14 @@ const Search = () => {
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src={post.profiles?.avatar_url} />
+                        <AvatarImage src={post.avatar_url} />
                         <AvatarFallback className="bg-primary/10 text-primary">
-                          {post.profiles?.username?.charAt(0).toUpperCase()}
+                          {post.username?.charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       
                       <div className="flex-1">
-                        <p className="font-semibold text-sm">{post.profiles?.full_name || post.profiles?.username}</p>
+                        <p className="font-semibold text-sm">{post.full_name || post.username}</p>
                         <p className="text-sm mt-1">{post.content}</p>
                         {post.image_url && (
                           <img src={post.image_url} alt="Post" className="mt-2 rounded-lg w-full max-h-64 object-cover" />

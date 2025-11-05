@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlusSquare, Image as ImageIcon, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { apiClient, handleApiError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -41,36 +41,11 @@ export const CreatePostDialog = () => {
     
     setLoading(true);
     try {
-      let imageUrl = null;
-
-      // Upload image if exists
-      if (imageFile) {
-        const fileExt = imageFile.name.split('.').pop();
-        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('post-images')
-          .upload(fileName, imageFile);
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('post-images')
-          .getPublicUrl(fileName);
-
-        imageUrl = publicUrl;
-      }
-
-      // Create post
-      const { error } = await supabase
-        .from('posts')
-        .insert({
-          user_id: user.id,
-          content,
-          image_url: imageUrl,
-        });
-
-      if (error) throw error;
+      // For now, create post without image upload (we can add file upload later)
+      const response = await apiClient.createPost({
+        content,
+        imageUrl: imagePreview || undefined // Use base64 preview for now
+      });
 
       toast({
         title: "Success",
@@ -86,7 +61,7 @@ export const CreatePostDialog = () => {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message,
+        description: handleApiError(error),
       });
     } finally {
       setLoading(false);
