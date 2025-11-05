@@ -166,6 +166,7 @@ class ApiClient {
   }
 
   async updateProfile(data: {
+    username?: string;
     fullName?: string;
     bio?: string;
     location?: string;
@@ -233,6 +234,14 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ confirm }),
     });
+  }
+
+  async adminVerifyUser(id: string) {
+    return this.request<{ message: string }>(`/admin/users/${id}/verify`, { method: 'POST' });
+  }
+
+  async adminUnverifyUser(id: string) {
+    return this.request<{ message: string }>(`/admin/users/${id}/unverify`, { method: 'POST' });
   }
 
   // Upload

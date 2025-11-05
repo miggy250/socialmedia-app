@@ -29,6 +29,7 @@ const Admin = () => {
         email: string;
         is_admin: number | boolean;
         is_active: number | boolean;
+        is_verified: number | boolean;
         deleted_at: string | null;
         username?: string;
         full_name?: string;
@@ -48,6 +49,14 @@ const Admin = () => {
   const softDelete = useMutation({
     mutationFn: async ({ id, email }: { id: string; email: string }) =>
       apiClient.adminSoftDeleteUser(id, `DELETE USER ${email}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+  });
+  const verify = useMutation({
+    mutationFn: async (id: string) => apiClient.adminVerifyUser(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+  });
+  const unverify = useMutation({
+    mutationFn: async (id: string) => apiClient.adminUnverifyUser(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
   });
 
@@ -107,7 +116,7 @@ const Admin = () => {
                         <span className="px-2 py-1 rounded bg-amber-100 text-amber-700">Inactive</span>
                       )}
                     </div>
-                    <div className="col-span-4 flex gap-2">
+                    <div className="col-span-4 flex gap-2 flex-wrap">
                       {!isAdmin && active && (
                         <Button
                           variant="secondary"
@@ -126,6 +135,27 @@ const Admin = () => {
                           disabled={reactivate.isPending}
                         >
                           Reactivate
+                        </Button>
+                      )}
+                      {!isAdmin && !u.is_verified && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => verify.mutate(u.id)}
+                          disabled={verify.isPending}
+                          className="border-blue-500 text-blue-500 hover:bg-blue-50"
+                        >
+                          Verify
+                        </Button>
+                      )}
+                      {!isAdmin && u.is_verified && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => unverify.mutate(u.id)}
+                          disabled={unverify.isPending}
+                        >
+                          Unverify
                         </Button>
                       )}
                       {!isAdmin && (

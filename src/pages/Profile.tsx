@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Grid, Settings, Bookmark, Heart, MessageCircle, MapPin, Calendar } from "lucide-react";
+import { Grid, Settings, Bookmark, Heart, MessageCircle, MapPin, Calendar, BadgeCheck } from "lucide-react";
 import { format } from "date-fns";
 
 export default function Profile() {
@@ -29,11 +29,14 @@ export default function Profile() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   
   const [editForm, setEditForm] = useState({
+    username: "",
     fullName: "",
     bio: "",
     location: "",
     avatarUrl: "",
   });
+
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const isOwnProfile = !userId || userId === user?.id;
 
@@ -54,6 +57,7 @@ export default function Profile() {
       
       if (isOwnProfile) {
         setEditForm({
+          username: data.profile.username || "",
           fullName: data.profile.full_name || "",
           bio: data.profile.bio || "",
           location: data.profile.location || "",
@@ -115,6 +119,26 @@ export default function Profile() {
     }
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploadingAvatar(true);
+      const { imageUrl } = await apiClient.uploadImage(file);
+      setEditForm({ ...editForm, avatarUrl: imageUrl });
+      toast({ title: 'Profile image uploaded successfully' });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: handleApiError(error),
+      });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const handleUpdateProfile = async () => {
     try {
       await apiClient.updateProfile(editForm);
@@ -172,7 +196,12 @@ export default function Profile() {
           {/* Profile Info */}
           <div className="flex-1 space-y-4">
             <div className="flex flex-col md:flex-row md:items-center gap-4">
-              <h1 className="text-2xl font-bold">{profile.username}</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold">{profile.username}</h1>
+                {profile.is_verified && (
+                  <BadgeCheck className="h-6 w-6 text-blue-500 fill-blue-500" />
+                )}
+              </div>
               
               {isOwnProfile ? (
                 <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
@@ -182,19 +211,57 @@ export default function Profile() {
                       Edit Profile
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle>Edit Profile</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
+                      {/* Profile Image Upload */}
+                      <div className="flex flex-col items-center gap-4">
+                        <Avatar className="h-24 w-24">
+                          <AvatarImage src={editForm.avatarUrl} />
+                          <AvatarFallback className="bg-primary/10 text-primary text-2xl">
+                            {editForm.username?.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="w-full">
+                          <Label htmlFor="avatarUpload">Profile Picture</Label>
+                          <Input
+                            id="avatarUpload"
+                            type="file"
+                            accept="image/*"
+                            onChange={handleAvatarUpload}
+                            disabled={uploadingAvatar}
+                          />
+                          {uploadingAvatar && (
+                            <p className="text-sm text-muted-foreground mt-1">Uploading...</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Username */}
+                      <div>
+                        <Label htmlFor="username">Username</Label>
+                        <Input
+                          id="username"
+                          value={editForm.username}
+                          onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+                          placeholder="your_username"
+                        />
+                      </div>
+
+                      {/* Full Name */}
                       <div>
                         <Label htmlFor="fullName">Full Name</Label>
                         <Input
                           id="fullName"
                           value={editForm.fullName}
                           onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
+                          placeholder="John Doe"
                         />
                       </div>
+
+                      {/* Bio */}
                       <div>
                         <Label htmlFor="bio">Bio</Label>
                         <Textarea
@@ -202,25 +269,30 @@ export default function Profile() {
                           value={editForm.bio}
                           onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
                           rows={3}
+                          placeholder="Tell us about yourself..."
+                          maxLength={500}
                         />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {editForm.bio.length}/500
+                        </p>
                       </div>
+
+                      {/* Location */}
                       <div>
                         <Label htmlFor="location">Location</Label>
                         <Input
                           id="location"
                           value={editForm.location}
                           onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
+                          placeholder="Kigali, Rwanda"
                         />
                       </div>
-                      <div>
-                        <Label htmlFor="avatarUrl">Avatar URL</Label>
-                        <Input
-                          id="avatarUrl"
-                          value={editForm.avatarUrl}
-                          onChange={(e) => setEditForm({ ...editForm, avatarUrl: e.target.value })}
-                        />
-                      </div>
-                      <Button onClick={handleUpdateProfile} className="w-full">
+
+                      <Button 
+                        onClick={handleUpdateProfile} 
+                        className="w-full"
+                        disabled={uploadingAvatar}
+                      >
                         Save Changes
                       </Button>
                     </div>

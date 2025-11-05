@@ -1,7 +1,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageCircle, Share2, Bookmark } from "lucide-react";
+import { Heart, MessageCircle, Share2, Bookmark, BadgeCheck } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiClient, handleApiError } from "@/lib/api";
@@ -94,7 +94,12 @@ export const PostCard = ({ post }: PostCardProps) => {
             </Link>
             <div className="flex-1">
               <Link to={`/profile/${post.user_id}`} className="hover:underline">
-                <p className="font-semibold text-foreground">{post.full_name || post.username}</p>
+                <div className="flex items-center gap-1">
+                  <p className="font-semibold text-foreground">{post.full_name || post.username}</p>
+                  {post.is_verified && (
+                    <BadgeCheck className="h-4 w-4 text-blue-500 fill-blue-500" />
+                  )}
+                </div>
               </Link>
               {post.location && (
                 <p className="text-sm text-muted-foreground">{post.location}</p>

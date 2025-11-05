@@ -130,10 +130,11 @@ router.get('/:userId/profile', authenticateToken, async (req, res) => {
 // Update profile
 router.put('/me/profile', [
   authenticateToken,
+  body('username').optional().isLength({ min: 3, max: 50 }).matches(/^[a-zA-Z0-9_]+$/),
   body('fullName').optional().isLength({ max: 100 }),
   body('bio').optional().isLength({ max: 500 }),
   body('location').optional().isLength({ max: 100 }),
-  body('avatarUrl').optional().isURL()
+  body('avatarUrl').optional().isString()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -141,17 +142,47 @@ router.put('/me/profile', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { fullName, bio, location, avatarUrl } = req.body;
+    const { username, fullName, bio, location, avatarUrl } = req.body;
+
+    // If username is being changed, check if it's already taken
+    if (username) {
+      const [existing] = await pool.execute(
+        'SELECT id FROM profiles WHERE username = ? AND id != ?',
+        [username, req.user.id]
+      );
+      
+      if (existing.length > 0) {
+        return res.status(400).json({ error: 'Username already taken' });
+      }
+    }
 
     await pool.execute(`
       UPDATE profiles 
-      SET full_name = ?, bio = ?, location = ?, avatar_url = ?, updated_at = CURRENT_TIMESTAMP
+      SET username = COALESCE(?, username),
+          full_name = ?,
+          bio = ?,
+          location = ?,
+          avatar_url = ?,
+          updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `, [fullName || null, bio || null, location || null, avatarUrl || null, req.user.id]);
+    `, [
+      username || null,
+      fullName || null,
+      bio || null,
+      location || null,
+      avatarUrl || null,
+      req.user.id
+    ]);
 
     res.json({ message: 'Profile updated successfully' });
   } catch (error) {
     console.error('Update profile error:', error);
+    
+    // Handle duplicate username error
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ error: 'Username already taken' });
+    }
+    
     res.status(500).json({ error: 'Internal server error' });
   }
 });

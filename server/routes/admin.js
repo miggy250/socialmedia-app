@@ -85,4 +85,38 @@ router.post('/users/:id/soft-delete', authenticateToken, requireAdmin, async (re
   }
 });
 
+// Verify user
+router.post('/users/:userId/verify', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    await pool.execute(
+      'UPDATE profiles SET is_verified = TRUE WHERE id = ?',
+      [userId]
+    );
+
+    res.json({ message: 'User verified successfully' });
+  } catch (error) {
+    console.error('Verify user error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Unverify user
+router.post('/users/:userId/unverify', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    await pool.execute(
+      'UPDATE profiles SET is_verified = FALSE WHERE id = ?',
+      [userId]
+    );
+
+    res.json({ message: 'User verification removed successfully' });
+  } catch (error) {
+    console.error('Unverify user error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;
